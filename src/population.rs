@@ -35,13 +35,13 @@ pub struct Population {
     killed_by_myself: usize,
     killed_by_hunger: usize,
     apples_eaten: usize,
-    average_fitness: f64,
+    average_fitness: f64
 }
 
 impl Population {
 
-    pub fn new(size:usize, iterations:Option<usize> ) -> Self {
-        let members: Vec<Member> = (0..size).map(|_| Member::new(None, None, None)).collect();
+    pub fn new(size:usize, iterations:Option<usize>, generation: usize ) -> Self {
+        let members: Vec<Member> = (0..size).map(|_| Member::new(None, None, None, generation)).collect();
 
         Population { 
             members: members,
@@ -58,9 +58,9 @@ impl Population {
         self.members.extend(members);
     }
 
-    pub fn add_random_members(&mut self, quantity: usize) {
+    pub fn add_random_members(&mut self, quantity: usize, generation: usize) {
         let new_members: Vec<Member> = (0..quantity)
-            .map(|_| Member::new(None, None, None))
+            .map(|_| Member::new(None, None, None, generation))
             .collect();
         self.members.extend(new_members);
     }
@@ -91,7 +91,7 @@ impl Population {
         panic!("No se pudo seleccionar un miembro proporcionalmente. Verifica los datos de entrada.");
     }
 
-    pub fn add_crossovers_members(&mut self, best_members:Vec<Member>, quantity: usize) {
+    pub fn add_crossovers_members(&mut self, best_members:Vec<Member>, quantity: usize, generation: usize) {
         let mut rng = rand::rng();
 
         let mut new_members: Vec<Member> = Vec::with_capacity(quantity);
@@ -127,7 +127,7 @@ impl Population {
             let mem2: Member = Self::select_proportional_by_fitness(&best_members);
 
             // Crea un nuevo miembro cruzando los dos seleccionados
-            let new_member = Population::cross_members(&mem1, &mem2, mix_type, mix_target, mutate);
+            let new_member = Population::cross_members(&mem1, &mem2, mix_type, mix_target, mutate, generation);
             new_members.push(new_member);
         }
 
@@ -140,10 +140,11 @@ impl Population {
         mix_type: MixType,
         mix_target: MixTarget,
         mutate: bool,
+        generation: usize
     ) -> Member {
         let mut rng = rng();
 
-        let mut new_mem = Member::new(Some(mem1.weights.clone()), Some(mem1.biases.clone()), None);
+        let mut new_mem = Member::new(Some(mem1.weights.clone()), Some(mem1.biases.clone()), None, generation);
 
         // Determinar si se cambian pesos y/o biases
         let (change_weights, change_biases) = match mix_target {
@@ -268,25 +269,25 @@ mod tests {
 
     #[test]
     fn test_population_new_with_default_iterations() {
-        let pop = Population::new(5, None);
+        let pop = Population::new(5, None, 0);
         assert_eq!(pop.members.len(), 5);
         assert_eq!(pop.iterations, DEFAULT_ITERATIONS);
     }
 
     #[test]
     fn test_population_new_with_custom_iterations() {
-        let pop = Population::new(3, Some(42));
+        let pop = Population::new(3, Some(42), 0);
         assert_eq!(pop.members.len(), 3);
         assert_eq!(pop.iterations, 42);
     }
 
     #[test]
     fn test_add_members() {
-        let mut pop = Population::new(2, None);
+        let mut pop = Population::new(2, None, 0);
 
         let extra_members = vec![
-            Member::new(None, None, Some(generate_random_u8_32())),
-            Member::new(None, None, Some(generate_random_u8_32())),
+            Member::new(None, None, Some(generate_random_u8_32()), 0),
+            Member::new(None, None, Some(generate_random_u8_32()), 0),
         ];
 
         pop.add_members(extra_members);
@@ -295,22 +296,22 @@ mod tests {
 
     #[test]
     fn test_add_random_members() {
-        let mut pop = Population::new(1, None);
-        pop.add_random_members(3);
+        let mut pop = Population::new(1, None, 0);
+        pop.add_random_members(3, 0);
         assert_eq!(pop.members.len(), 4);
     }
 
     #[test]
     fn test_best_members_sorted_by_fitness() {
-        let mut pop = Population::new(0, None);
+        let mut pop = Population::new(0, None, 0);
 
-        let mut m1 = Member::new(None, None, Some(generate_random_u8_32()));
+        let mut m1 = Member::new(None, None, Some(generate_random_u8_32()), 0);
         m1.fitness = 10.0;
 
-        let mut m2 = Member::new(None, None, Some(generate_random_u8_32()));
+        let mut m2 = Member::new(None, None, Some(generate_random_u8_32()), 0);
         m2.fitness = 50.0;
 
-        let mut m3 = Member::new(None, None, Some(generate_random_u8_32()));
+        let mut m3 = Member::new(None, None, Some(generate_random_u8_32()), 0);
         m3.fitness = 30.0;
 
         pop.add_members(vec![m1, m2, m3]);
@@ -323,10 +324,10 @@ mod tests {
 
     #[test]
     fn test_best_members_limited_by_quantity() {
-        let mut pop = Population::new(0, None);
+        let mut pop = Population::new(0, None, 0);
 
         for i in 0..10 {
-            let mut m = Member::new(None, None, Some(generate_random_u8_32()));
+            let mut m = Member::new(None, None, Some(generate_random_u8_32()), 0);
             m.fitness = i as f64;
             pop.members.push(m);
         }
@@ -338,7 +339,7 @@ mod tests {
     }
 
     fn generate_dummy_member(seed: [u8; 32]) -> Member {
-        Member::new(None, None, Some(seed))
+        Member::new(None, None, Some(seed), 0)
     }
 
     #[test]
@@ -346,7 +347,7 @@ mod tests {
         let mem1 = generate_dummy_member([1; 32]);
         let mem2 = generate_dummy_member([2; 32]);
 
-        let child = Population::cross_members(&mem1, &mem2, MixType::All, MixTarget::Weights, false);
+        let child = Population::cross_members(&mem1, &mem2, MixType::All, MixTarget::Weights, false, 0);
 
         // Should be mostly equal to mem2 in weights, and equal to mem1 in biases
         assert_ne!(child.weights, mem1.weights);
@@ -358,7 +359,7 @@ mod tests {
         let mem1 = generate_dummy_member([3; 32]);
         let mem2 = generate_dummy_member([4; 32]);
 
-        let child = Population::cross_members(&mem1, &mem2, MixType::Single, MixTarget::Biases, false);
+        let child = Population::cross_members(&mem1, &mem2, MixType::Single, MixTarget::Biases, false, 0);
 
         assert_eq!(child.weights, mem1.weights); // weights unchanged
         assert_ne!(child.biases, mem1.biases); // at least one bias changed
@@ -369,7 +370,7 @@ mod tests {
         let mem1 = generate_dummy_member([5; 32]);
         let mem2 = generate_dummy_member([6; 32]);
 
-        let child = Population::cross_members(&mem1, &mem2, MixType::All, MixTarget::Both, true);
+        let child = Population::cross_members(&mem1, &mem2, MixType::All, MixTarget::Both, true, 0);
 
         assert_ne!(child.weights, mem1.weights);
         assert_ne!(child.biases, mem1.biases);

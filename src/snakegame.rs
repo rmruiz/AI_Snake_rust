@@ -7,6 +7,9 @@ use rand::Rng;
 const BOARD_SIZE: usize = 18;
 const STEPS_UNTIL_DEATH: usize = 6 * BOARD_SIZE; // 6 x BOARD SIZE
 
+const POINTS_PER_APPLE: usize = 300; // 3 times STEPS_UNTIL_DEATH
+const POINTS_PER_STEP: usize = 1;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Direction {
     North = 0,
@@ -195,7 +198,7 @@ impl Snakegame {
         let mut got_apple: bool = false;
 
         if self.apple_position == next_head_position {
-            self.score = self.score + self.total_steps + 1;
+            self.score += POINTS_PER_APPLE;
             self.apples_eaten += 1;
             self.steps_until_death = STEPS_UNTIL_DEATH + 1;
             got_apple = true;
@@ -225,6 +228,7 @@ impl Snakegame {
             self.killed_by_hunger = true;
         }
         self.total_steps +=1;
+        self.score += POINTS_PER_STEP;
 
     }
 

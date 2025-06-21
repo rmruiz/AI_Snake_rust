@@ -13,8 +13,7 @@ pub struct Member {
     pub nn_architecture: NN_Architecture,
     pub weights: Vec<Array2<f64>>,
     pub biases: Vec<Array2<f64>>,
-    //TODO: add when creating member
-    //pub generation: usize, 
+    pub generation: usize, 
     pub killed_by_wall: usize,
     pub killed_by_myself: usize,
     pub killed_by_hunger: usize,
@@ -27,6 +26,7 @@ impl Member {
         weights: Option<Vec<Array2<f64>>>,
         biases: Option<Vec<Array2<f64>>>,
         seed: Option<[u8; 32]>,
+        generation: usize,
     ) -> Self {
         let mut rng: StdRng = match seed {
                 Some(s) => StdRng::from_seed(s),
@@ -72,7 +72,8 @@ impl Member {
             killed_by_hunger: 0,
             killed_by_myself: 0,
             killed_by_wall: 0,
-            apples_eaten: 0
+            apples_eaten: 0,
+            generation: generation
         }
     }
     
@@ -120,13 +121,12 @@ impl Member {
 
         for _ in 0..iterations {
             let score = self.play_game_to_update_fitness(); 
-            sum += score;
-            //printing per iteration, needed?
-            //println!(" Iteration {}: KxH={}, KxM={}, KxW={}, AE={}, Sco={}", 
-            //    i, self.killed_by_hunger, self.killed_by_myself, self.killed_by_wall, self.apples_eaten, score)
+            sum += score;     
         }
-
         self.fitness = sum as f64 / iterations as f64;
+        //printing stats per member
+        println!("MyGen {}: KxH={}, KxM={}, KxW={}, AE={}, Fit={:.3}", 
+            self.generation, self.killed_by_hunger, self.killed_by_myself, self.killed_by_wall, self.apples_eaten, self.fitness)
     }
 
     fn next_move_from_input(&self, input: Array2<f64>) -> usize {
@@ -239,7 +239,7 @@ mod tests {
         // z = W·A + b = [1.0 * 2.0 + (-1.0) * 3.0 + 0.5] = [-0.5] → relu = 0.0
         let weights: Vec<Array2<f64>> = vec![ array![[1.0, -1.0]] ]; // shape (1, 2)
         let biases: Vec<Array2<f64>> = vec![ array![[0.5]] ]; // shape (1, 1)
-        let member: Member = Member::new(Some(weights), Some(biases), None);
+        let member: Member = Member::new(Some(weights), Some(biases), None, 0);
         // Force our test architecture into the struct
         let mut member = member;
         member.nn_architecture = nn_arch;
@@ -276,7 +276,8 @@ mod tests {
             killed_by_hunger: 0,
             killed_by_myself: 0,
             killed_by_wall: 0,
-            apples_eaten: 0
+            apples_eaten: 0,
+            generation: 0
         };
 
         // Input vector: shape (2, 1)
