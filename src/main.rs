@@ -7,13 +7,13 @@ mod population;
 use population::{Population};
 use member::{Member};
 
-const GENS: usize = 80;
+const GENS: usize = 800;
 const ITER_PER_MEMBER: usize = 10;
 
-const POP_SIZE: usize = 10; // Population size
-const BEST_N_TO_KEEP: usize = 5; // Number of best members to keep for the next generation
-const CROSSOVER_N: usize = 3; // Number of crossovers to perform
-const RANDOM_N_TO_ADD: usize = 2; // Number of random members to add
+const POP_SIZE: usize = 100; // Population size
+const BEST_N_TO_KEEP: usize = 50; // Number of best members to keep for the next generation
+const CROSSOVER_N: usize = 30; // Number of crossovers to perform
+const RANDOM_N_TO_ADD: usize = 20; // Number of random members to add
 
 fn main() {
     let mut pop: Population = Population::new(POP_SIZE, Some(ITER_PER_MEMBER), 0);

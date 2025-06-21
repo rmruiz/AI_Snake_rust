@@ -125,8 +125,8 @@ impl Member {
         }
         self.fitness = sum as f64 / iterations as f64;
         //printing stats per member
-        println!("MyGen {}: KxH={}, KxM={}, KxW={}, AE={}, Fit={:.3}", 
-            self.generation, self.killed_by_hunger, self.killed_by_myself, self.killed_by_wall, self.apples_eaten, self.fitness)
+        //println!("MyGen {}: KxH={}, KxM={}, KxW={}, AE={}, Fit={:.3}", 
+        //    self.generation, self.killed_by_hunger, self.killed_by_myself, self.killed_by_wall, self.apples_eaten, self.fitness)
     }
 
     fn next_move_from_input(&self, input: Array2<f64>) -> usize {

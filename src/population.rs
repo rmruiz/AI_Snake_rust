@@ -2,6 +2,7 @@ const DEFAULT_ITERATIONS: usize = 10;
     
 use crate::member::Member;
 use rand::{Rng,rng};
+use rayon::prelude::*;
 
 const MIX_TYPE_ALL_PERCENTAGE: usize = 10;
 const MIX_TYPE_HALF_PERCENTAGE: usize = 60;
@@ -232,6 +233,53 @@ impl Population {
         self.apples_eaten = 0;
         self.average_fitness = 0.0;
 
+        // Use par_iter_mut and collect intermediate results
+        let stats: Vec<(usize, usize, usize, usize, f64)> = self
+            .members
+            .par_iter_mut()
+            .map(|member| {
+                member.iterate_to_update_fitness(self.iterations);
+                (
+                    member.killed_by_wall,
+                    member.killed_by_myself,
+                    member.killed_by_hunger,
+                    member.apples_eaten,
+                    member.fitness,
+                )
+            })
+            .collect();
+
+        // Aggregate all stats after parallel work
+        let mut total_fitness = 0.0;
+        for (wall, myself, hunger, apples, fitness) in stats {
+            self.killed_by_wall += wall;
+            self.killed_by_myself += myself;
+            self.killed_by_hunger += hunger;
+            self.apples_eaten += apples;
+            total_fitness += fitness;
+        }
+
+        self.average_fitness = total_fitness / self.members.len() as f64;
+
+        println!(
+            "[Population] avg(Fitness): {:.3}, K by wall: {}, K by myself: {}, K by hunger: {}, Apples eaten: {}",
+            self.average_fitness,
+            self.killed_by_wall,
+            self.killed_by_myself,
+            self.killed_by_hunger,
+            self.apples_eaten
+        );
+    }
+
+    /*
+    pub fn update_fitness(&mut self) {
+        // reset stats
+        self.killed_by_wall = 0;
+        self.killed_by_myself = 0;
+        self.killed_by_hunger = 0;
+        self.apples_eaten = 0;
+        self.average_fitness = 0.0;
+
         let mut total_fitness: f64 = 0.0;
 
         for member in self.members.iter_mut() {
@@ -252,6 +300,7 @@ impl Population {
             self.killed_by_hunger, 
             self.apples_eaten);
     }
+    */
 }
     
 #[cfg(test)]
