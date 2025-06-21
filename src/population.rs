@@ -244,7 +244,7 @@ impl Population {
         }
         self.average_fitness = total_fitness / self.members.len() as f64;
         
-        println!("[Population] Fitness: {:.3}, K by wall: {}, K by myself: {}, K by hunger: {}, Apples eaten: {}",
+        println!("[Population] avg(Fitness): {:.3}, K by wall: {}, K by myself: {}, K by hunger: {}, Apples eaten: {}",
             self.average_fitness, 
             self.killed_by_wall, 
             self.killed_by_myself, 
