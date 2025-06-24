@@ -4,13 +4,13 @@ use crate::member::Member;
 use rand::{Rng,rng};
 use rayon::prelude::*;
 
-const MIX_TYPE_ALL_PERCENTAGE: usize = 10;
+const MIX_TYPE_ALL_PERCENTAGE: usize = 30;
 const MIX_TYPE_HALF_PERCENTAGE: usize = 60;
 
-const MIX_WEIGHTS_PERCENTAGE: usize = 70;
-const MIX_BIASES_PERCENTAGE: usize = 70;
+const MIX_WEIGHTS_PERCENTAGE: usize = 50;
+const MIX_BIASES_PERCENTAGE: usize = 50;
 
-const MIX_MUTATE_PERCENTAGE: usize = 50;
+const MIX_MUTATE_PERCENTAGE: usize = 1;
 
 #[derive(Debug, PartialEq)]
 pub enum MixType {
@@ -236,7 +236,7 @@ impl Population {
         // Use par_iter_mut and collect intermediate results
         let stats: Vec<(usize, usize, usize, usize, f64)> = self
             .members
-            .par_iter_mut()
+            .par_iter_mut() // PARALEL .par_iter_mut(), NOT PARALEL .iter_mut()
             .map(|member| {
                 member.iterate_to_update_fitness(self.iterations);
                 (
@@ -244,30 +244,31 @@ impl Population {
                     member.killed_by_myself,
                     member.killed_by_hunger,
                     member.apples_eaten,
-                    member.fitness,
+                    member.fitness, //average score through iterations
                 )
             })
             .collect();
 
         // Aggregate all stats after parallel work
         let mut total_fitness = 0.0;
+        let mut max_fitness = 0.0;
         for (wall, myself, hunger, apples, fitness) in stats {
             self.killed_by_wall += wall;
             self.killed_by_myself += myself;
             self.killed_by_hunger += hunger;
             self.apples_eaten += apples;
             total_fitness += fitness;
+            if fitness > max_fitness {
+                max_fitness = fitness;
+            }
         }
 
         self.average_fitness = total_fitness / self.members.len() as f64;
 
         println!(
-            "[Population] avg(Fitness): {:.3}, K by wall: {}, K by myself: {}, K by hunger: {}, Apples eaten: {}",
+            "[Population] max(Fit): {:.0}, avg(Fit): {:.0}",
+            max_fitness,
             self.average_fitness,
-            self.killed_by_wall,
-            self.killed_by_myself,
-            self.killed_by_hunger,
-            self.apples_eaten
         );
     }
 

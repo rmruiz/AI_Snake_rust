@@ -4,19 +4,54 @@ use ndarray::{Array2,array};
 
 use rand::Rng;
 
+use std::f64::consts::PI;
+
 const BOARD_SIZE: usize = 18;
-const STEPS_UNTIL_DEATH: usize = 6 * BOARD_SIZE; // 6 x BOARD SIZE
+const STEPS_UNTIL_DEATH: usize = 2 * BOARD_SIZE + 1; //Enough to cross the board for the apple
 
 const POINTS_PER_APPLE: usize = 300; // 3 times STEPS_UNTIL_DEATH
-const POINTS_PER_STEP: usize = 1;
+const POINTS_PER_STEP: usize = 5;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+const MAX_APPLES_EATEN: usize = 3;
+const MAX_SCORE: usize = 10000;
+
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub enum Direction {
     North = 0,
     South = 1,
     East = 2,
     West = 3,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RelativeDirection {
+    Left = 0,
+    Infront = 1,
+    Right = 2,
+}
+
+fn relative_to_absolute(dir: Direction, rel: RelativeDirection) -> Direction {
+        use Direction::*;
+        use RelativeDirection::*;
+
+        match (dir, rel) {
+            (North, Infront) => North,
+            (North, Left)    => West,
+            (North, Right)   => East,
+
+            (South, Infront) => South,
+            (South, Left)    => East,
+            (South, Right)   => West,
+
+            (East, Infront)  => East,
+            (East, Left)     => North,
+            (East, Right)    => South,
+
+            (West, Infront)  => West,
+            (West, Left)     => South,
+            (West, Right)    => North,
+        }
+    }
 
 impl Direction {
     pub fn from_usize(value: usize) -> Self {
@@ -55,7 +90,7 @@ impl Snakegame {
         let mut rng = rand::rng();
         let mut apple_position: Point;
         loop {
-            apple_position = Point { x: rng.random_range(0..BOARD_SIZE), y: rng.random_range(0..BOARD_SIZE) };
+            apple_position = Point { x: rng.random_range(0..BOARD_SIZE) as isize, y: rng.random_range(0..BOARD_SIZE) as isize};
             if !snake.contains(&apple_position) {
                 break;
             }
@@ -76,6 +111,35 @@ impl Snakegame {
         }
     }
 
+    pub fn print_board(&self) {
+        for _ in 0..BOARD_SIZE + 2 {
+            print!("X");
+        }
+        println!("");
+        for row in 0..BOARD_SIZE as isize {
+            print!("X");
+            for col in 0..BOARD_SIZE as isize {
+                if self.get_snake_head_pos().x == row && self.get_snake_head_pos().y == col {
+                    print!("H");
+                }
+                else if self.snake.contains(&Point { x: (row), y: (col) }) {
+                    print!("S");
+                }
+                else if self.apple_position.x == row && self.apple_position.y == col {
+                    print!("A");    
+                }
+                else {
+                    print!(" ");
+                }
+            }
+            println!("X");
+        }
+        for _ in 0..BOARD_SIZE + 2 {
+            print!("X");
+        }
+        println!("");
+    }
+
     pub fn get_current_input(&self) -> Array2<f64> {
         let dir_input = match self.direction {
             Direction::North => -1.0,
@@ -85,16 +149,13 @@ impl Snakegame {
         };
 
         array![
-            [dir_input],
-            [self.distance_to_north_south_wall()],
-            [self.distance_to_west_east_wall()],
-            [self.have_snake_in_direction(Direction::North)],
-            [self.have_snake_in_direction(Direction::South)],
-            [self.have_snake_in_direction(Direction::East)],
-            [self.have_snake_in_direction(Direction::West)],
-            [self.get_fruit_north_south_distance()],
-            [self.get_fruit_east_west_distance()],
-            [self.distance_fruit_infront()],
+            [self.distance_to_wall(RelativeDirection::Infront)], 
+            [self.distance_to_wall(RelativeDirection::Left)],
+            [self.distance_to_wall(RelativeDirection::Right)],
+            [self.distance_to_snake(RelativeDirection::Infront)], 
+            [self.distance_to_snake(RelativeDirection::Left)],
+            [self.distance_to_snake(RelativeDirection::Right)],
+            [self.apple_relative_direction()],
         ]
     }
 
@@ -116,6 +177,88 @@ impl Snakegame {
             }
         }
         -1.0
+    }
+    pub fn apple_relative_direction(&self) -> f64 {
+        // Convert direction to a unit vector
+        let dir_vec = match self.direction {
+            Direction::North => (0.0, -1.0),
+            Direction::South => (0.0, 1.0),
+            Direction::East  => (1.0, 0.0),
+            Direction::West  => (-1.0, 0.0),
+        };
+        let head = self.get_snake_head_pos();
+
+        let to_apple = (
+            (self.apple_position.x as f64 - head.x as f64),
+            (self.apple_position.y as f64 - head.y as f64),
+        );
+
+        let norm = (to_apple.0.powi(2) + to_apple.1.powi(2)).sqrt();
+        if norm == 0.0 {
+            return 0.0; // Apple is at the head
+        }
+
+        let unit_to_apple = (to_apple.0 / norm, to_apple.1 / norm);
+
+        let dot = dir_vec.0 * unit_to_apple.0 + dir_vec.1 * unit_to_apple.1;
+        let cross = dir_vec.0 * unit_to_apple.1 - dir_vec.1 * unit_to_apple.0;
+
+        let angle = cross.atan2(dot); // angle in radians from -π to π
+
+        angle / PI // Normalize to [-1.0, 1.0]
+    }
+
+    pub fn distance_to_wall(&self, relative_direction: RelativeDirection) -> f64 {
+        let head = self.get_snake_head_pos();
+        let abs_dir = self.direction;
+        let abs_target_dir = relative_to_absolute(abs_dir, relative_direction);
+
+        //println!("boardsize {}, head {}", BOARD_SIZE, head);
+
+        let distance = match abs_target_dir {
+            Direction::North => head.y,
+            Direction::South => BOARD_SIZE as isize - head.y,
+            Direction::West  => head.x,
+            Direction::East  => BOARD_SIZE as isize - head.x,
+        };
+
+        let normalized = 1.0 - (distance as f64 / (BOARD_SIZE - 1) as f64);
+        normalized.clamp(0.0, 1.0)
+    }
+
+    
+
+    pub fn distance_to_snake(&self, relative_direction: RelativeDirection) -> f64 {
+        let head = self.get_snake_head_pos(); // assuming head is always at index 0
+        let abs_dir = self.direction;
+        let dir = relative_to_absolute(abs_dir, relative_direction);
+
+        let advance_fn = match dir {
+            Direction::North => Point::north,
+            Direction::South => Point::south,
+            Direction::East  => Point::east,
+            Direction::West  => Point::west,
+        };
+
+        let mut current = head;
+        for distance in 1..BOARD_SIZE {
+            current = advance_fn(current);
+
+            if !self.is_inside_board(&current) {
+                break;
+            }
+
+            if self.snake.contains(&current) {
+                // Normalize and invert: 1.0 (close) -> 0.0 (far)
+                return 1.0 - (distance as f64 / (BOARD_SIZE - 1) as f64);
+            }
+        }
+
+        0.0 // no snake part found in this direction
+    }
+
+    fn is_inside_board(&self, p: &Point) -> bool {
+        p.x >= 0 && p.x < BOARD_SIZE as isize && p.y >= 0 && p.y < BOARD_SIZE as isize
     }
 
     pub fn distance_to_north_south_wall(&self) -> f64 {
@@ -172,19 +315,17 @@ impl Snakegame {
         self.score
     }
 
-    pub fn move_snake(&mut self, new_direction: Direction) 
-    {
+    pub fn move_snake(&mut self, new_direction: Direction) {
         if new_direction == Direction::North && self.direction == Direction::South ||
         new_direction == Direction::South && self.direction == Direction::North ||
         new_direction == Direction::East && self.direction == Direction::West ||
         new_direction == Direction::West && self.direction == Direction::East {
             self.alive = false;
             self.killed_by_myself = true;
+            return;
         }
-        else {
-            self.direction = new_direction;
-        }
-
+        
+        self.direction = new_direction;
 
         let head = self.get_snake_head_pos();
 
@@ -203,13 +344,16 @@ impl Snakegame {
             self.steps_until_death = STEPS_UNTIL_DEATH + 1;
             got_apple = true;
         }
-        else if head == next_head_position { //this means we git the wall
+        else if next_head_position.x == -1 || next_head_position.x == BOARD_SIZE as isize ||
+                next_head_position.y == -1 || next_head_position.y == BOARD_SIZE as isize {
             self.alive = false;
-            self.killed_by_wall = true;
+            self.killed_by_wall;
+            return;
         }
         else if self.snake.contains(&next_head_position) {
             self.alive = false;
             self.killed_by_myself = true;
+            return;
         }
 
         self.snake.push(next_head_position);
@@ -226,10 +370,16 @@ impl Snakegame {
         if self.steps_until_death == 0 {
             self.alive = false;
             self.killed_by_hunger = true;
+            return
         }
         self.total_steps +=1;
         self.score += POINTS_PER_STEP;
 
+        if self.apples_eaten == MAX_APPLES_EATEN {
+            self.alive = false;
+            self.score = MAX_SCORE;
+            println!("bingo!")
+        }
     }
 
 }
@@ -237,8 +387,8 @@ impl Snakegame {
 fn new_fruit(snake: &Vec<Point>) -> Point {
         let mut rng = rand::rng();
         loop {
-            let x: usize = rng.random_range(0..BOARD_SIZE);
-            let y: usize = rng.random_range(0..BOARD_SIZE);
+            let x: isize = rng.random_range(0..BOARD_SIZE) as isize;
+            let y: isize = rng.random_range(0..BOARD_SIZE) as isize;
             let point: Point = Point { x: x, y: y };
             if !snake.contains(&point) {
                 return point;
@@ -269,7 +419,7 @@ mod tests {
 
         // Check that the fruit is within board bounds
         assert!(
-            fruit.x < BOARD_SIZE && fruit.x < BOARD_SIZE && fruit.y < BOARD_SIZE && fruit.y < BOARD_SIZE,
+            fruit.x < BOARD_SIZE as isize && fruit.x < BOARD_SIZE as isize && fruit.y < BOARD_SIZE as isize && fruit.y < BOARD_SIZE as isize,
             "Fruit position {:?} is out of bounds",
             fruit
         );
@@ -294,7 +444,7 @@ mod tests {
         );
     }
 
-    fn point(x: usize, y: usize) -> Point {
+    fn point(x: isize, y: isize) -> Point {
         Point { x, y }
     }
 
@@ -607,5 +757,38 @@ mod tests {
 
         let score = game.have_snake_in_direction(Direction::West);
         assert_eq!(score, 0.8);
+    }
+
+    #[test]
+    fn test_distance_to_wall_infront() {
+        let mut game = Snakegame::new();
+        game.direction = Direction::North;
+        game.snake = vec![Point { x: 5, y: 5 }];
+        
+        let d = game.distance_to_wall(RelativeDirection::Infront);
+        assert!((d - (1.0 - (4.0 / 9.0))).abs() < 1e-6); // 1.0 - (4 / 9) if BOARD_SIZE is 10
+    }
+
+    #[test]
+        fn test_distance_to_snake_infront() {
+        let game = Snakegame {
+            apples_eaten: 0,
+            alive: true,
+            steps_until_death: 100,
+            total_steps: 0,
+            direction: Direction::East,
+            score: 0,
+            killed_by_wall: false,
+            killed_by_myself: false,
+            killed_by_hunger: false,
+            snake: vec![
+                Point { x: 5, y: 5 }, // head
+                Point { x: 6, y: 5 }, // body in front (East)
+            ],
+            apple_position: Point { x: 0, y: 0 },
+        };
+
+        let d = game.distance_to_snake(RelativeDirection::Infront);
+        assert!((d - 1.0).abs() < 1e-6);
     }
 }

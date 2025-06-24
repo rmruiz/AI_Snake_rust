@@ -6,8 +6,10 @@ use std::cmp::Ordering;
 use crate::nn_architecture::{NN_Architecture, Activation}; 
 use crate::snakegame::{Direction, Snakegame};
 
+use serde::Serialize;
+
 // Define the struct
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Member {
     pub fitness: f64,
     pub nn_architecture: NN_Architecture,
@@ -90,6 +92,8 @@ impl Member {
         let mut sg = Snakegame::new();
 
         while sg.alive {
+            //sg.print_board();
+            //println!();
             let input: Array2<f64> = sg.get_current_input(); 
             let next_move: usize = self.next_move_from_input(input);
             sg.move_snake(Direction::from_usize(next_move));
@@ -116,17 +120,22 @@ impl Member {
         self.killed_by_wall = 0;
         self.apples_eaten = 0;
         self.fitness = 0.0;
+        let mut max_score = 0;
         
         let mut sum: usize = 0;
 
         for _ in 0..iterations {
             let score = self.play_game_to_update_fitness(); 
-            sum += score;     
+            sum += score;
+            if score > max_score {
+                max_score = score;
+            }     
         }
         self.fitness = sum as f64 / iterations as f64;
         //printing stats per member
         //println!("MyGen {}: KxH={}, KxM={}, KxW={}, AE={}, Fit={:.3}", 
         //    self.generation, self.killed_by_hunger, self.killed_by_myself, self.killed_by_wall, self.apples_eaten, self.fitness)
+        //print!("{}.",max_score)
     }
 
     fn next_move_from_input(&self, input: Array2<f64>) -> usize {

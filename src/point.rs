@@ -1,12 +1,14 @@
+use std::fmt;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Point {
-    pub x: usize,
-    pub y: usize,
+    pub x: isize,
+    pub y: isize,
 }
 
 impl Point {
     pub fn north(self) -> Self {
-        Point { x: self.x, y: self.y.saturating_sub(1) }
+        Point { x: self.x, y: self.y - 1 }
     }
 
     pub fn south(self) -> Self {
@@ -18,7 +20,13 @@ impl Point {
     }
 
     pub fn west(self) -> Self {
-        Point { x: self.x.saturating_sub(1), y: self.y }
+        Point { x: self.x -1, y: self.y }
+    }
+}
+
+impl fmt::Display for Point {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[{},{}]", self.x, self.y)
     }
 }
 
